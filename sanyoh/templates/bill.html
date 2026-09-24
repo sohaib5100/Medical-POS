@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanyoh International - Billing Counter</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @media print {
+            body { background-color: #ffffff !important; padding: 0 !important; }
+            body * { visibility: hidden; }
+            #billInvoice, #billInvoice * { visibility: visible !important; }
+            #billInvoice { 
+                position: relative !important;
+                left: 0; 
+                top: 0; 
+                width: 100% !important; 
+                border: none !important; 
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .no-print { display: none !important; }
+            .force-print-asset {
+                visibility: visible !important;
+                display: block !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6 font-sans relative">
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 space-y-2 no-print"></div>
+
+    <div class="max-w-7xl mx-auto flex justify-between items-center mb-4 bg-white p-3 rounded-md shadow-sm no-print">
+        <span class="text-xs text-green-600 font-bold flex items-center gap-1">● Billing System Online</span>
+        <a href="/login" class="bg-gray-800 hover:bg-black text-white text-xs font-bold py-1.5 px-4 rounded shadow-sm transition">
+            🔒 Admin Dashboard
+        </a>
+    </div>
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- WAREHOUSE LIVE STOCK -->
+        <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md border border-gray-200 no-print max-h-[600px] overflow-y-auto">
+            <h2 class="text-sm font-bold mb-3 text-gray-700 border-b pb-2 uppercase tracking-wider">📊 Live Stock</h2>
+            <div class="space-y-2">
+                {% for item in items %}
+                <div class="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-100">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-800">{{ item[1] }}</p>
+                        <p class="text-[10px] text-gray-500">Rs. {{ item[2] }} &middot; Batch: {{ item[4] if item | length > 4 and item[4] else 'N/A' }}</p>
+                    </div>
+                    <div class="text-right">
+                        {% if item[3] < 10 %}
+                        <span class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-bold block mb-1">LOW: {{ item[3] }}</span>
+                        {% else %}
+                        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-semibold block mb-1">Qty: {{ item[3] }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- LEFT CONTROL COLUMN: CUSTOMER + ADD ITEM -->
+        <div class="lg:col-span-1 space-y-4 no-print">
+
+            <!-- CUSTOMER DETAILS PANEL -->
+            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <h2 class="text-sm font-bold mb-4 text-gray-700 border-b pb-2 uppercase tracking-wider">🧾 Customer Details</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600">Customer / Business Name</label>
+                        <input type="text" id="custName" placeholder="e.g., Waheed Chemist & Optician" class="w-full mt-1 p-2 border rounded-md text-xs" oninput="renderInvoice()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600">Phone</label>
+                        <input type="text" id="custPhone" placeholder="e.g., 0300-1234567" class="w-full mt-1 p-2 border rounded-md text-xs" oninput="renderInvoice()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600">Address</label>
+                        <input type="text" id="custAddress" placeholder="e.g., Shop 8-9, Allah Dad Plaza" class="w-full mt-1 p-2 border rounded-md text-xs" oninput="renderInvoice()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADD ITEM FORM -->
+            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 h-fit">
+                <h2 class="text-sm font-bold mb-4 text-gray-700 border-b pb-2 uppercase tracking-wider">🛒 Add Item to Bill</h2>
+                
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-600">Select Product</label>
+                    <select id="itemSelect" class="w-full mt-1 p-2 border rounded-md bg-white text-xs">
+                        <option value="">-- Choose Product --</option>
+                        {% for item in items %}
+                        <option value="{{ item[0] }}"
+                                data-id="{{ item[0] }}"
+                                data-price="{{ item[2] }}" 
+                                data-stock="{{ item[3] }}"
+                                data-batch="{{ item[4] if item | length > 4 and item[4] else 'N/A' }}"
+                                data-mfg="{{ item[5] if item | length > 5 and item[5] else 'N/A' }}"
+                                data-exp="{{ item[6] if item | length > 6 and item[6] else 'N/A' }}"
+                                data-reg="{{ item[7] if item | length > 7 and item[7] else 'N/A' }}"
+                                data-name="{{ item[1] }}">
+                            {{ item[1] }} — Batch: {{ item[4] if item | length > 4 and item[4] else 'N/A' }} (Available: {{ item[3] }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600">Quantity</label>
+                        <input type="number" id="itemQty" value="1" min="1" class="w-full mt-1 p-2 border rounded-md text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600">Discount %</label>
+                        <input type="number" id="itemDiscount" value="0" min="0" max="100" step="0.01" class="w-full mt-1 p-2 border rounded-md text-xs">
+                    </div>
+                </div>
+
+                <button onclick="addItemToBill()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-xs transition duration-200">
+                    + Add to Invoice
+                </button>
+            </div>
+        </div>
+
+        <!-- RECEIPT VIEW AREA -->
+        <div id="billInvoice" class="lg:col-span-2 bg-white p-6 border border-gray-300 rounded-lg shadow-md flex flex-col justify-between min-h-[520px] relative">
+            <!-- WATERMARK LAYER -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 force-print-asset" 
+                 style="display: flex !important; justify-content: center !important; align-items: center !important; width: 100%; height: 100%;">
+                <img src="{{ url_for('static', filename='image_91e482.png') }}" alt="Sanyoh Logo Watermark" 
+                    class="w-4/5 max-w-md object-contain force-print-asset" style="opacity: 0.09; margin: auto;">
+            </div>
+
+            <div class="relative z-10">
+               <!-- HEADER: LOGO, COMPANY INFO, NTN/GST, AUTO INVOICE NUMBER -->
+               <div class="border-b-2 border-gray-800 pb-4 mb-4 flex justify-between items-start gap-4">
+                    <div class="flex items-center gap-4">
+                        <img src="{{ url_for('static', filename='image_2a7f37.png') }}" alt="Sanyoh Branding Logo" class="w-28 h-28 object-contain force-print-asset flex-shrink-0">
+                        <div>
+                            <h1 class="text-xl font-black uppercase tracking-wider text-gray-800 leading-tight">{{ company.name }}</h1>
+                            <p class="text-[10px] text-gray-600 mt-0.5">{{ company.address }}</p>
+                            <p class="text-[10px] text-gray-600 font-semibold">{{ company.email }} | {{ company.phone }}</p>
+                            <p class="text-[10px] text-gray-600 font-semibold">{{ company.website }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <p class="text-xs font-semibold text-gray-700">Invoice: <span id="invoiceNumber">#{{ next_invoice_number }}</span></p>
+                        <p class="text-[10px] text-gray-500 mb-2">Date: <span id="liveDate"></span></p>
+                        <p class="text-[10px] font-bold text-gray-700">NTN: {{ company.ntn }}</p>
+                        <p class="text-[10px] font-bold text-gray-700">GST: {{ company.gst }}</p>
+                        <p class="text-[10px] font-bold text-gray-700">License No: {{ company.license_no }}</p>
+                    </div>
+                </div>
+
+                <!-- CUSTOMER INFO STRIP -->
+                <div id="customerInfoStrip" class="text-[10px] text-gray-600 mb-4 space-y-0.5 hidden">
+                    <p><span class="font-bold text-gray-700">Customer:</span> <span id="printCustName"></span></p>
+                    <p><span class="font-bold text-gray-700">Address:</span> <span id="printCustAddress"></span></p>
+                    <p><span class="font-bold text-gray-700">Phone:</span> <span id="printCustPhone"></span></p>
+                </div>
+
+                <!-- INVOICE GRID TABLE -->
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-gray-300 bg-gray-50/80 text-[9px] font-bold text-gray-600 uppercase tracking-wide">
+                            <th class="p-2">Item Name</th>
+                            <th class="p-2 text-center">Mfg / Expiry</th>
+                            <th class="p-2 text-center">Qty</th>
+                            <th class="p-2 text-center">Rate</th>
+                            <th class="p-2 text-center">Gross</th>
+                            <th class="p-2 text-center">Disc %</th>
+                            <th class="p-2 text-center">Disc Amt</th>
+                            <th class="p-2 text-right">Net Amt.</th>
+                            <th class="p-2 text-center no-print">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceBody" class="text-[10px] text-gray-600"></tbody>
+                </table>
+            </div>
+
+            <!-- PRICING CONTROLS AND DETAILS -->
+            <div class="border-t pt-4 mt-6 relative z-10 space-y-1.5 text-xs">
+                <div class="flex justify-between items-center font-semibold text-gray-500">
+                    <span>Gross Amount:</span>
+                    <span>Rs. <span id="grossTotal">0.00</span></span>
+                </div>
+                <div class="flex justify-between items-center font-semibold text-gray-500">
+                    <span>Total Discount:</span>
+                    <span>Rs. <span id="discTotal">0.00</span></span>
+                </div>
+                <div class="flex justify-between items-center font-semibold text-gray-500">
+                    <span>Sales Tax ({{ default_tax_percent }}%):</span>
+                    <span>Rs. <span id="salesTaxVal">0.00</span></span>
+                </div>
+                <div class="flex justify-between items-center text-sm font-black text-gray-900 border-t border-dashed border-gray-200 pt-2 uppercase tracking-wider">
+                    <span>Net Total:</span>
+                    <span>Rs. <span id="grandTotal">0.00</span></span>
+                </div>
+                <p id="amountInWords" class="text-[10px] text-gray-500 italic pt-1"></p>
+
+                <button onclick="processCheckout()" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-md text-sm transition duration-200 no-print cursor-pointer">
+                    🖨️ Generate & Print Bill
+                </button>
+            </div>
+        </div>
+
+     </div>
+
+    <!-- SCRIPT CONTROLLER -->
+    <script>
+        document.getElementById('liveDate').innerText = new Date().toLocaleDateString('en-GB');
+        let invoiceItems = [];
+        const TAX_PERCENT = {{ default_tax_percent }};
+
+        function showToast(message, type = "error") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-md shadow-lg text-white font-semibold text-xs transition duration-300 transform translate-y-0 ${
+                type === "success" ? "bg-green-600" : "bg-red-600"
+            }`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3500);
+        }
+
+        function addItemToBill() {
+            const select = document.getElementById('itemSelect');
+            if(!select.value) return;
+            
+            const selectedOpt = select.options[select.selectedIndex];
+            const productId = selectedOpt.getAttribute('data-id');
+            const itemName = selectedOpt.getAttribute('data-name');
+            const itemPrice = parseFloat(selectedOpt.getAttribute('data-price'));
+            const maxStock = parseInt(selectedOpt.getAttribute('data-stock'));
+            
+            const batchNum = selectedOpt.getAttribute('data-batch') || 'N/A';
+            const mfgDt = selectedOpt.getAttribute('data-mfg') || 'N/A';
+            const expDt = selectedOpt.getAttribute('data-exp') || 'N/A';
+            const regNum = selectedOpt.getAttribute('data-reg') || 'N/A';
+            
+            const qty = parseInt(document.getElementById('itemQty').value);
+            const discPercent = parseFloat(document.getElementById('itemDiscount').value) || 0;
+            if (qty <= 0 || isNaN(qty)) {
+                showToast("⚠️ Enter a valid quantity!");
+                return;
+            }
+
+            // Cart lines are matched by the exact product row id (i.e. the exact
+            // batch), never just by name - two lines for the same product can
+            // now carry different batches/expiries that must never be merged.
+            const existingItem = invoiceItems.find(item => item.id === productId && item.discPercent === discPercent);
+
+            const alreadyInCart = invoiceItems.filter(i => i.id === productId).reduce((sum, i) => sum + i.qty, 0);
+            if (alreadyInCart + qty > maxStock) {
+                showToast(`❌ Only ${maxStock} units available in stock for this batch!`);
+                return;
+            }
+
+            if (existingItem) {
+                existingItem.qty += qty;
+            } else {
+                invoiceItems.push({ 
+                    id: productId,
+                    name: itemName, 
+                    price: itemPrice, 
+                    qty: qty, 
+                    batch: batchNum,
+                    mfg: mfgDt,
+                    exp: expDt,
+                    reg: regNum,
+                    discPercent: discPercent
+                });
+            }
+            renderInvoice();
+        }
+
+        function removeItem(index) {
+            invoiceItems.splice(index, 1);
+            renderInvoice();
+        }
+
+        // Converts a number into words for the "Amount in Words" line (Pakistani/Indian numbering: Lakh, Crore)
+        function numberToWords(num) {
+            num = Math.round(num);
+            if (num === 0) return "Zero";
+            const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+            const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+            function twoDigits(n) {
+                if (n < 20) return ones[n];
+                return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+            }
+            function threeDigits(n) {
+                if (n < 100) return twoDigits(n);
+                return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + twoDigits(n % 100) : "");
+            }
+
+            let crore = Math.floor(num / 10000000); num %= 10000000;
+            let lakh = Math.floor(num / 100000); num %= 100000;
+            let thousand = Math.floor(num / 1000); num %= 1000;
+            let rest = num;
+
+            let parts = [];
+            if (crore) parts.push(threeDigits(crore) + " Crore");
+            if (lakh) parts.push(threeDigits(lakh) + " Lakh");
+            if (thousand) parts.push(threeDigits(thousand) + " Thousand");
+            if (rest) parts.push(threeDigits(rest));
+
+            return parts.join(" ");
+        }
+
+        function renderInvoice() {
+            const tbody = document.getElementById('invoiceBody');
+            tbody.innerHTML = '';
+            let grossAmount = 0;
+            let discAmount = 0;
+
+            invoiceItems.forEach((item, index) => {
+                const lineGross = item.price * item.qty;
+                const lineDisc = lineGross * (item.discPercent / 100);
+                const lineNet = lineGross - lineDisc;
+                grossAmount += lineGross;
+                discAmount += lineDisc;
+
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50/40">
+                        <td class="p-2 py-3">
+                            <p class="font-bold text-gray-800">${item.name}</p>
+                            <p class="text-[9px] text-gray-400 font-mono uppercase">Batch # ${item.batch}</p>
+                            <p class="text-[9px] text-gray-400 font-mono uppercase">Reg # ${item.reg}</p>
+                        </td>
+                        <td class="p-2 py-3 text-center">
+                            <p class="font-mono text-[10px] text-gray-600">MFG: ${item.mfg}</p>
+                            <p class="text-[9px] text-red-400 font-semibold font-mono">EXP: ${item.exp}</p>
+                        </td>
+                        <td class="p-2 py-3 text-center font-bold text-gray-800">${item.qty}</td>
+                        <td class="p-2 py-3 text-center font-medium text-gray-700">Rs. ${item.price.toFixed(2)}</td>
+                        <td class="p-2 py-3 text-center font-medium text-gray-700">Rs. ${lineGross.toFixed(2)}</td>
+                        <td class="p-2 py-3 text-center font-medium text-gray-500">${item.discPercent}%</td>
+                        <td class="p-2 py-3 text-center font-medium text-gray-500">Rs. ${lineDisc.toFixed(2)}</td>
+                        <td class="p-2 py-3 text-right font-bold text-gray-900">Rs. ${lineNet.toFixed(2)}</td>
+                        <td class="p-2 py-3 text-center no-print">
+                            <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold transition">✕</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Sales tax is auto-calculated (built in) at the fixed rate, applied
+            // after discount - no manual entry needed.
+            const netAfterDiscount = grossAmount - discAmount;
+            const salesTax = netAfterDiscount * (TAX_PERCENT / 100);
+            const netTotal = netAfterDiscount + salesTax;
+
+            document.getElementById('grossTotal').innerText = grossAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('discTotal').innerText = discAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('salesTaxVal').innerText = salesTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('grandTotal').innerText = netTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('amountInWords').innerText = netTotal > 0 ? ("Rupees " + numberToWords(netTotal) + " Only") : "";
+
+            // Customer info strip - only shows on the printed invoice if any field is filled in
+            const custName = document.getElementById('custName').value.trim();
+            const custPhone = document.getElementById('custPhone').value.trim();
+            const custAddress = document.getElementById('custAddress').value.trim();
+            const strip = document.getElementById('customerInfoStrip');
+            if (custName || custPhone || custAddress) {
+                strip.classList.remove('hidden');
+                document.getElementById('printCustName').innerText = custName || '-';
+                document.getElementById('printCustPhone').innerText = custPhone || '-';
+                document.getElementById('printCustAddress').innerText = custAddress || '-';
+            } else {
+                strip.classList.add('hidden');
+            }
+
+            return { grossAmount, discAmount, salesTax, netTotal };
+        }
+
+        function processCheckout() {
+            if (invoiceItems.length === 0) {
+                showToast("⚠️ Your cart is empty!");
+                return;
+            }
+
+            const cartPayload = invoiceItems.map(item => ({
+                id: item.id,
+                name: item.name,
+                qty: item.qty,
+                discount_percent: item.discPercent
+            }));
+
+            const totals = renderInvoice();
+
+            fetch('/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cart: cartPayload,
+                    sales_tax: totals.salesTax,
+                    customer: {
+                        name: document.getElementById('custName').value.trim(),
+                        phone: document.getElementById('custPhone').value.trim(),
+                        address: document.getElementById('custAddress').value.trim()
+                    }
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.invoice_number) {
+                        document.getElementById('invoiceNumber').innerText = '#' + data.invoice_number;
+                    }
+                    window.print();
+                    location.reload();
+                } else {
+                    showToast("Error: " + data.message);
+                }
+            })
+            .catch(err => showToast("⚠️ Could not reach the server. Please try again."));
+        }
+
+        renderInvoice();
+    </script>
+</body>
+</html>

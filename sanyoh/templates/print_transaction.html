@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanyoh International - Transaction Receipt</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @media print {
+            body { background-color: #ffffff !important; padding: 0 !important; }
+            .no-print { display: none !important; }
+            .force-print-asset {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6 font-sans">
+
+    <div class="max-w-2xl mx-auto mb-4 flex justify-between items-center no-print">
+        <a href="/dashboard" class="text-xs font-bold text-gray-600 hover:text-gray-900">← Back to Dashboard</a>
+        <button onclick="window.print()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded-md shadow-sm transition cursor-pointer">
+            🖨️ Print Receipt
+        </button>
+    </div>
+
+    <div class="max-w-2xl mx-auto bg-white p-8 border border-gray-300 rounded-lg shadow-md relative">
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 force-print-asset"
+             style="display:flex; justify-content:center; align-items:center; width:100%; height:100%;">
+            <img src="{{ url_for('static', filename='image_91e482.png') }}" alt="Sanyoh Logo Watermark"
+                 class="w-4/5 max-w-sm object-contain force-print-asset" style="opacity:0.08; margin:auto;">
+        </div>
+
+        <div class="relative z-10">
+            <div class="border-b-2 border-gray-800 pb-4 mb-5 flex justify-between items-start gap-4">
+                <div class="flex items-center gap-4">
+                    <img src="{{ url_for('static', filename='image_2a7f37.png') }}" alt="Sanyoh Branding Logo" class="w-24 h-24 object-contain force-print-asset flex-shrink-0">
+                    <div>
+                        <h1 class="text-lg font-black uppercase tracking-wider text-gray-800 leading-tight">{{ company.name }}</h1>
+                        <p class="text-[10px] text-gray-600 mt-0.5">{{ company.address }}</p>
+                        <p class="text-[10px] text-gray-600 font-semibold">{{ company.website }} | {{ company.phone }}</p>
+                    </div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                    <p class="text-xs font-semibold text-gray-700">Transaction Receipt</p>
+                    <p class="text-[10px] text-gray-500 mb-2">Ref #: TXN-{{ "%05d"|format(tx.id) }}</p>
+                    <p class="text-[10px] font-bold text-gray-700">NTN: {{ company.ntn }}</p>
+                    <p class="text-[10px] font-bold text-gray-700">GST: {{ company.gst }}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-6 text-xs">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-wide text-gray-400">Date & Time</p>
+                    <p class="font-bold text-gray-800">{{ tx.timestamp }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-wide text-gray-400">Type</p>
+                    {% if tx.transaction_type == 'INWARD' %}
+                    <span class="inline-block mt-0.5 bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-md font-black text-[10px] tracking-wide uppercase">📥 Stock In</span>
+                    {% else %}
+                    <span class="inline-block mt-0.5 bg-red-50 border border-red-100 text-red-600 px-2.5 py-0.5 rounded-md font-black text-[10px] tracking-wide uppercase">📦 Sale</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <table class="w-full text-left border-collapse mb-6">
+                <thead>
+                    <tr class="border-b border-gray-300 bg-gray-50/80 text-[10px] font-bold text-gray-600 uppercase tracking-wide">
+                        <th class="p-2">Product</th>
+                        <th class="p-2 text-center">Quantity</th>
+                        <th class="p-2 text-center">Unit Price</th>
+                        <th class="p-2 text-right">Total Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="text-xs text-gray-700">
+                    <tr class="border-b border-gray-100">
+                        <td class="p-2 py-3 font-bold text-gray-800">{{ tx.product_name }}</td>
+                        <td class="p-2 py-3 text-center font-semibold">{{ tx.quantity }}</td>
+                        <td class="p-2 py-3 text-center">Rs. {{ "{:,.2f}".format(tx.price_per_unit) }}</td>
+                        <td class="p-2 py-3 text-right font-bold text-gray-900">Rs. {{ "{:,.2f}".format(tx.total_amount) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="border-t pt-4 space-y-1.5 text-xs">
+                <div class="flex justify-between items-center text-sm font-black text-gray-900 uppercase tracking-wider">
+                    <span>Total {{ 'Received' if tx.transaction_type == 'INWARD' else 'Amount' }}:</span>
+                    <span>Rs. {{ "{:,.2f}".format(tx.total_amount) }}</span>
+                </div>
+                <p id="amountInWords" class="text-[10px] text-gray-500 italic pt-1"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function numberToWords(num) {
+            num = Math.round(num);
+            if (num === 0) return "Zero";
+            const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+            const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+            function twoDigits(n) { return n < 20 ? ones[n] : tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : ""); }
+            function threeDigits(n) { return n < 100 ? twoDigits(n) : ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + twoDigits(n % 100) : ""); }
+            let crore = Math.floor(num / 10000000); num %= 10000000;
+            let lakh = Math.floor(num / 100000); num %= 100000;
+            let thousand = Math.floor(num / 1000); num %= 1000;
+            let rest = num;
+            let parts = [];
+            if (crore) parts.push(threeDigits(crore) + " Crore");
+            if (lakh) parts.push(threeDigits(lakh) + " Lakh");
+            if (thousand) parts.push(threeDigits(thousand) + " Thousand");
+            if (rest) parts.push(threeDigits(rest));
+            return parts.join(" ");
+        }
+        document.getElementById('amountInWords').innerText = "Rupees " + numberToWords({{ tx.total_amount }}) + " Only";
+    </script>
+</body>
+</html>

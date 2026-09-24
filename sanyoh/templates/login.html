@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanyoh International - Admin Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .bg-sanyoh-green { background-color: #2b7a3a; }
+        .text-sanyoh-green { color: #2b7a3a; }
+        .border-sanyoh-green { border-color: #2b7a3a; }
+        
+        .focus-sanyoh:focus {
+            outline: none;
+            border-color: #2b7a3a;
+            box-shadow: 0 0 0 4px rgba(43, 122, 58, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-[#f3f7f4] font-sans h-screen w-screen flex items-center justify-center overflow-hidden antialiased">
+
+    <!-- MASTER DUAL-PANEL CANVAS -->
+    <div class="bg-white w-full max-w-5xl h-[600px] rounded-3xl shadow-2xl border border-gray-100 flex overflow-hidden m-4 relative">
+        
+        <!-- LEFT PANEL: MEDICAL BRAND & LOGO DISPLAY CORE -->
+        <div class="hidden md:flex md:w-1/2 bg-gradient-to-tr from-[#edf5ee] via-[#f7faf8] to-white p-12 flex-col justify-between relative overflow-hidden border-r border-gray-100">
+            <div class="absolute -bottom-10 -left-10 w-44 h-44 bg-[#e2eee4] rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-emerald-100 rounded-full mix-blend-multiply filter blur-xl opacity-50"></div>
+            
+            <!-- Top Tagline -->
+            <div class="z-10">
+                <span class="text-[10px] tracking-widest uppercase font-black text-emerald-800 bg-emerald-100/80 px-3 py-1 rounded-full">
+                    Surgical Logistics Platform
+                </span>
+            </div>
+            
+            <!-- Central Dynamic Logo Integration Panel -->
+            <div class="z-10 flex flex-col items-center text-center space-y-6 px-4">
+                <div class="w-full max-w-[260px] flex items-center justify-center">
+                    <img src="/static/image_91e482.png" alt="Sanyoh International" class="w-full h-auto object-contain drop-shadow-sm transition-all duration-300">
+                </div>
+                <div class="h-0.5 w-16 bg-sanyoh-green/60 rounded-full"></div>
+                <div class="space-y-2">
+                    <h3 class="text-lg font-bold text-gray-800 tracking-tight">Centers of Excellence</h3>
+                    <p class="text-xs text-gray-500 max-w-xs leading-relaxed">
+                        Authorized enterprise interface for inventory management, warehouse supply records, and billing operations.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Branding metadata footer -->
+            <div class="z-10 flex items-center justify-between text-[11px] text-gray-400 font-semibold tracking-wide">
+                <span>© Sanyoh International</span>
+                <span class="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    System Secured
+                </span>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: LOGIN FORM -->
+        <div class="w-full md:w-1/2 p-10 lg:p-16 flex flex-col justify-center bg-white relative">
+            
+            <!-- Welcome Header -->
+            <div class="mb-8">
+                <!-- Mobile Logo Fallback -->
+                <div class="md:hidden mb-6 flex justify-start">
+                    <img src="/static/image_91e482.png" alt="Sanyoh International" class="h-16 object-contain">
+                </div>
+                <h2 class="text-2xl font-black text-gray-900 tracking-tight">Welcome Back</h2>
+                <p class="text-xs text-gray-400 mt-1.5 font-medium">Sign in with your admin credentials to continue</p>
+            </div>
+
+            <!-- Error diagnostics display container -->
+            {% if error %}
+            <div class="mb-6 bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-3 rounded-xl font-medium flex items-center gap-2.5 shadow-xs">
+                <span class="text-sm">⚠️</span> {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- Login form -->
+            <form action="/login" method="POST" class="space-y-5">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider pl-1">Email Address</label>
+                    <div class="relative mt-1.5">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 text-xs select-none">👤</span>
+                        <input type="email" name="email" required placeholder="admin@gmail.com" 
+                               class="w-full pl-10 pr-4 py-2.5 bg-gray-50/70 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 transition focus-sanyoh">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider pl-1">Password</label>
+                    <div class="relative mt-1.5">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 text-xs select-none">🔒</span>
+                        <input type="password" name="password" required placeholder="••••••••" 
+                               class="w-full pl-10 pr-4 py-2.5 bg-gray-50/70 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 transition focus-sanyoh">
+                    </div>
+                </div>
+
+                <div class="pt-3">
+                    <button type="submit" 
+                            class="bg-sanyoh-green hover:bg-[#22612e] text-white w-full py-3 rounded-xl text-xs font-bold tracking-wide transition-all duration-150 shadow-sm hover:shadow-md active:scale-[0.995]">
+                        Sign In
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Redirection Back Link -->
+            <div class="mt-8 text-center">
+                <a href="/" class="text-xs font-bold text-sanyoh-green hover:text-emerald-700 transition underline underline-offset-4 decoration-2">
+                    ← Back to Billing Counter
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

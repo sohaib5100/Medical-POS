@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanyoh International - Inventory & Sales Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- ChartJS Content Framework Library Injection -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .bg-sanyoh-green { background-color: #2b7a3a; }
+        .text-sanyoh-green { color: #2b7a3a; }
+        .border-sanyoh-green { border-color: #2b7a3a; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50/50 font-sans min-h-screen flex antialiased">
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 space-y-2"></div>
+
+    <!-- SIDEBAR NAVIGATION PANEL CONTROLLER -->
+    <div class="w-64 bg-white border-r border-gray-100 flex flex-col justify-between fixed h-full z-20">
+        <div>
+            <div class="p-6 border-b border-gray-50 flex flex-col items-center justify-center">
+                <div class="w-full max-w-[180px] px-2">
+                    <img src="/static/image_91e482.png" alt="Sanyoh International" class="w-full h-auto object-contain drop-shadow-xs">
+                </div>
+                <div class="h-0.5 w-12 bg-sanyoh-green/40 mt-3 rounded-full"></div>
+            </div>
+
+            <nav class="p-4 space-y-1.5 mt-4" id="sidebar-nav">
+                <button onclick="switchTab('management-overview', this)" class="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-500 rounded-xl hover:bg-gray-50 transition cursor-pointer nav-btn">
+                    <span>🏠</span> Dashboard
+                </button>
+                <button onclick="switchTab('live-showcase', this)" class="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-white bg-sanyoh-green rounded-xl shadow-xs cursor-pointer nav-btn">
+                    <span>📦</span> Product Catalog
+                </button>
+                <button onclick="switchTab('inward-entry', this)" class="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-500 rounded-xl hover:bg-gray-50 transition cursor-pointer nav-btn">
+                    <span>📥</span> Inventory Intake
+                </button>
+                <button onclick="switchTab('audit-ledger', this)" class="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-500 rounded-xl hover:bg-gray-50 transition cursor-pointer nav-btn">
+                    <span>📜</span> Transaction History
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-4 border-t border-gray-50 space-y-2">
+            <a href="/export-inventory-csv" class="flex items-center justify-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 w-full py-2.5 rounded-xl text-xs font-bold tracking-wide transition">
+                ⬇️ Download Inventory Report
+            </a>
+            <a href="/bill" class="flex items-center justify-center gap-2 bg-sanyoh-green hover:bg-[#22612e] text-white w-full py-3 rounded-xl text-xs font-bold tracking-wide transition shadow-xs">
+                🛒 Go to Billing Counter
+            </a>
+            <a href="/logout" class="flex items-center justify-center w-full py-2.5 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition">
+                Log Out
+            </a>
+        </div>
+    </div>
+
+    <!-- MAIN INTERACTIVE NODE AREA -->
+    <div class="flex-1 pl-64 min-h-screen flex flex-col">
+        
+        <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+            <h1 id="page-title" class="text-sm font-black text-gray-800 uppercase tracking-wider">Product Catalog</h1>
+            <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-[10px] font-bold text-emerald-800 tracking-wide uppercase">System Online</span>
+            </div>
+        </header>
+
+        <main class="p-8 flex-1 space-y-8 max-w-7xl w-full mx-auto">
+
+            <!-- LOW STOCK ALERT BANNER (Pro feature addition) -->
+            {% if summary.low_stock_count > 0 %}
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg">⚠️</span>
+                    <div>
+                        <p class="text-xs font-black text-amber-800 uppercase tracking-wide">
+                            {{ summary.low_stock_count }} item{{ 's' if summary.low_stock_count != 1 else '' }} running low
+                        </p>
+                        <p class="text-[11px] text-amber-700 mt-0.5">
+                            {% for item in summary.low_stock_items[:4] %}{{ item.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if summary.low_stock_items|length > 4 %} and {{ summary.low_stock_items|length - 4 }} more{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <button onclick="document.querySelector('[onclick*=inward-entry]').click()" class="text-[10px] font-bold uppercase tracking-wide bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition cursor-pointer whitespace-nowrap">
+                    Restock Now
+                </button>
+            </div>
+            {% endif %}
+            
+            <!-- TAB 1: MANAGEMENT OVERVIEW -->
+            <div id="tab-management-overview" class="tab-content hidden space-y-8">
+
+                <!-- QUICK SUMMARY CARDS (Pro feature addition) -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div class="bg-white border border-gray-100 p-5 rounded-3xl shadow-xs flex flex-col justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Products</span>
+                        <h3 class="text-2xl font-black text-gray-800 mt-2">{{ summary.total_products }}</h3>
+                    </div>
+                    <div class="bg-white border border-gray-100 p-5 rounded-3xl shadow-xs flex flex-col justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Stock Units</span>
+                        <h3 class="text-2xl font-black text-gray-800 mt-2">{{ summary.total_stock_units }}</h3>
+                    </div>
+                    <div class="bg-white border border-gray-100 p-5 rounded-3xl shadow-xs flex flex-col justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Stock Value on Hand</span>
+                        <h3 class="text-2xl font-black text-sanyoh-green mt-2">Rs. {{ "{:,.0f}".format(summary.total_stock_value) }}</h3>
+                    </div>
+                    <div class="bg-white border border-gray-100 p-5 rounded-3xl shadow-xs flex flex-col justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Low Stock Items</span>
+                        <h3 class="text-2xl font-black {{ 'text-red-500' if summary.low_stock_count > 0 else 'text-gray-800' }} mt-2">{{ summary.low_stock_count }}</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="bg-white border border-gray-100 p-6 rounded-3xl shadow-xs flex flex-col justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Revenue (This Year)</span>
+                        <h3 id="stat-revenue" class="text-2xl font-black text-sanyoh-green mt-2">Rs. 0.00</h3>
+                    </div>
+                    <div class="bg-white border border-gray-100 p-6 rounded-3xl shadow-xs flex flex-col justify-between">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Stock Investment (This Year)</span>
+                        <h3 id="stat-investment" class="text-2xl font-black text-blue-600 mt-2">Rs. 0.00</h3>
+                    </div>
+                </div>
+
+                <section class="bg-white border border-gray-100 rounded-3xl p-6 shadow-xs">
+                    <div class="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">📈</span>
+                            <h2 class="text-xs font-black text-gray-800 tracking-wider uppercase">Sales & Inventory Trends</h2>
+                        </div>
+                        <div class="flex gap-1 bg-gray-100 p-1 rounded-xl text-[10px] font-bold">
+                            <button onclick="updateChartScale('monthly')" id="scale-btn-monthly" class="px-3 py-1 rounded-lg bg-white text-gray-800 shadow-xs cursor-pointer">Monthly</button>
+                            <button onclick="updateChartScale('yearly')" id="scale-btn-yearly" class="px-3 py-1 rounded-lg text-gray-500 cursor-pointer">Yearly</button>
+                        </div>
+                    </div>
+                    <div class="h-80 w-full relative">
+                        <canvas id="analyticsChart"></canvas>
+                    </div>
+                </section>
+
+                <!-- ADVANCED REPORT GENERATOR (Pro feature addition) -->
+                <section class="bg-white border border-gray-100 rounded-3xl p-6 shadow-xs">
+                    <div class="flex items-center justify-between mb-6 border-b border-gray-50 pb-4 flex-wrap gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">📄</span>
+                            <h2 class="text-xs font-black text-gray-800 tracking-wider uppercase">Custom Report Generator</h2>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <input type="date" id="reportStartDate" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] outline-none focus:border-sanyoh-green">
+                            <span class="text-[10px] text-gray-400 font-bold">to</span>
+                            <input type="date" id="reportEndDate" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] outline-none focus:border-sanyoh-green">
+                            <button onclick="generateReport()" class="text-[10px] font-bold uppercase tracking-wide bg-sanyoh-green hover:bg-[#22612e] text-white px-4 py-2 rounded-lg transition cursor-pointer">
+                                Generate
+                            </button>
+                            <button onclick="downloadReportCsv()" class="text-[10px] font-bold uppercase tracking-wide bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg transition cursor-pointer">
+                                ⬇️ CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <p id="reportRangeLabel" class="text-[10px] text-gray-400 mb-4">Showing: all-time (no date filter applied yet)</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-gray-50/70 border border-gray-100 p-4 rounded-2xl">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-gray-400">Total Sales</span>
+                            <h3 id="report-total-sales" class="text-lg font-black text-sanyoh-green mt-1">Rs. 0.00</h3>
+                        </div>
+                        <div class="bg-gray-50/70 border border-gray-100 p-4 rounded-2xl">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-gray-400">Total Purchases</span>
+                            <h3 id="report-total-purchases" class="text-lg font-black text-blue-600 mt-1">Rs. 0.00</h3>
+                        </div>
+                        <div class="bg-gray-50/70 border border-gray-100 p-4 rounded-2xl">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-gray-400">Gross Margin</span>
+                            <h3 id="report-margin" class="text-lg font-black text-gray-800 mt-1">Rs. 0.00</h3>
+                        </div>
+                        <div class="bg-gray-50/70 border border-gray-100 p-4 rounded-2xl">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-gray-400">Sales / Avg. Sale</span>
+                            <h3 id="report-count-avg" class="text-lg font-black text-gray-800 mt-1">0 / Rs. 0.00</h3>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-wide mb-3">Top Selling Products (by revenue)</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full border-collapse text-left text-xs">
+                                <thead>
+                                    <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 tracking-wider uppercase bg-gray-50/50">
+                                        <th class="py-2.5 px-3">Product</th>
+                                        <th class="py-2.5 px-3 text-center">Units Sold</th>
+                                        <th class="py-2.5 px-3 text-right">Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-top-products" class="divide-y divide-gray-50 text-gray-600">
+                                    <tr><td colspan="3" class="py-4 px-3 text-center text-gray-400 text-[11px]">Click "Generate" to run a report.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB 2: LIVE PRODUCT SHOWCASE -->
+            <div id="tab-live-showcase" class="tab-content space-y-8">
+                <section class="bg-white border border-gray-100 rounded-3xl p-6 shadow-xs relative">
+                    <div class="flex items-center gap-2 mb-6 border-b border-gray-50 pb-4">
+                        <span class="text-sm">📦</span>
+                        <h2 class="text-xs font-black text-sanyoh-green tracking-wider uppercase">Product Showcase</h2>
+                    </div>
+
+                    <div class="relative flex items-center px-4">
+                        <button onclick="scrollCarousel(-1)" class="absolute left-0 bg-white border border-gray-100 shadow-md w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-50 active:scale-95 transition z-10 cursor-pointer text-xs">‹</button>
+
+                        <div id="product-carousel-viewport" class="overflow-hidden mx-10 min-w-0">
+                            <div id="product-carousel" class="flex gap-5 py-2">
+                                {% for product in products %}
+                                <div class="carousel-card bg-white border border-gray-100 rounded-2xl p-4 min-w-[210px] max-w-[210px] flex flex-col justify-between items-center text-center shadow-xs hover:shadow-md transition duration-200 group relative">
+                                    {% if product.quantity <= 5 %}
+                                    <span class="absolute top-2 right-2 bg-red-50 text-red-600 text-[8px] font-black px-2 py-0.5 rounded-full border border-red-100 uppercase tracking-wide">Low Stock</span>
+                                    {% endif %}
+                                    
+                                    <div class="w-full aspect-square bg-gray-50/60 rounded-xl flex items-center justify-center overflow-hidden mb-4 p-2">
+                                        <img src="/static/{{ product.image_name if product.image_name else 'image_91e482.png' }}" 
+                                             alt="{{ product.name }}" 
+                                             class="max-w-full max-h-full object-contain mix-blend-darken transform group-hover:scale-105 transition duration-300">
+                                    </div>
+
+                                    <div class="w-full space-y-1">
+                                        <h3 class="text-xs font-black text-gray-800 tracking-tight line-clamp-1">{{ product.name }}</h3>
+                                        <p class="text-xs font-bold text-sanyoh-green">Rs. {{ "{:,.2f}".format(product.price) }}</p>
+                                        <p class="text-[9px] text-gray-400 font-mono uppercase">Batch: {{ product.batch_number if product.batch_number else 'N/A' }}</p>
+                                        <div class="pt-2">
+                                            <span class="inline-block text-[10px] bg-gray-50 border border-gray-100 px-3 py-1 rounded-full text-gray-500 font-semibold">
+                                                <strong class="text-gray-800">{{ product.quantity }}</strong> left
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <button onclick="scrollCarousel(1)" class="absolute right-0 bg-white border border-gray-100 shadow-md w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-50 active:scale-95 transition z-10 cursor-pointer text-xs">›</button>
+                    </div>
+                </section>
+
+                <!-- FULL INVENTORY CONTROL MATRIX BLOCK -->
+                <section class="bg-white border border-gray-100 rounded-3xl p-6 shadow-xs">
+                    <div class="flex items-center gap-2 mb-6 border-b border-gray-50 pb-4">
+                        <span class="text-sm">📊</span>
+                        <h2 class="text-xs font-black text-gray-800 tracking-wider uppercase">Inventory Overview</h2>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse text-left">
+                            <thead>
+                                <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 tracking-wider uppercase bg-gray-50/50">
+                                    <th class="py-3 px-4">Product Name</th>
+                                    <th class="py-3 px-4">Batch Number</th>
+                                    <th class="py-3 px-4 text-right">Unit Price</th>
+                                    <th class="py-3 px-4 text-center">Quantity</th>
+                                    <th class="py-3 px-4 text-right">Status</th>
+                                    <th class="py-3 px-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-50 text-xs">
+                                {% for product in products %}
+                                <tr class="hover:bg-gray-50/40 transition">
+                                    <td class="py-3.5 px-4 font-bold text-gray-800">{{ product.name }}</td>
+                                    <td class="py-3.5 px-4 font-mono text-gray-500 text-[11px]">{{ product.batch_number }}</td>
+                                    <td class="py-3.5 px-4 text-right font-bold text-sanyoh-green">Rs. {{ "{:,.2f}".format(product.price) }}</td>
+                                    <td class="py-3.5 px-4 text-center font-semibold text-gray-700">{{ product.quantity }}</td>
+                                    <td class="py-3.5 px-4 text-right">
+                                        {% if product.quantity == 0 %}
+                                        <span class="bg-red-50 text-red-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-red-100 uppercase tracking-wide">Out of Stock</span>
+                                        {% elif product.quantity <= 5 %}
+                                        <span class="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-amber-100 uppercase tracking-wide">Low Stock</span>
+                                        {% else %}
+                                        <span class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-[10px] font-bold border border-emerald-100 uppercase tracking-wide">In Stock</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-center">
+                                        <!-- Safe Separation using HTML5 data attributes -->
+                                        <button type="button" 
+                                                data-id="{{ product.id }}" 
+                                                data-name="{{ product.name }}" 
+                                                onclick="openDeleteModal(this)" 
+                                                class="text-red-500 hover:text-red-700 font-bold hover:bg-red-50 px-2.5 py-1 rounded-lg transition duration-150 cursor-pointer">
+                                            🗑️ Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB 3: DYNAMIC INWARD ENTRY -->
+            <div id="tab-inward-entry" class="tab-content hidden space-y-8">
+                <section class="bg-white border border-gray-100 rounded-3xl p-6 shadow-xs max-w-2xl mx-auto">
+                    <div class="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">📥</span>
+                            <h2 class="text-xs font-black text-gray-800 tracking-wider uppercase">Inventory Intake</h2>
+                        </div>
+                        <div class="flex gap-2 p-1 bg-gray-100 rounded-xl text-[10px] font-bold">
+                            <button onclick="toggleInwardMode('existing')" id="btn-mode-existing" class="px-3 py-1.5 rounded-lg bg-white text-gray-800 shadow-xs cursor-pointer">Update Existing</button>
+                            <button onclick="toggleInwardMode('new')" id="btn-mode-new" class="px-3 py-1.5 rounded-lg text-gray-500 cursor-pointer">Add New Product</button>
+                        </div>
+                    </div>
+
+                    <form id="inwardStockForm" action="/inward-stock" method="POST" enctype="multipart/form-data" class="space-y-5 text-xs" onsubmit="return submitInwardForm(event)">
+                        <input type="hidden" name="action_type" id="inward-action-type" value="existing">
+
+                        <div id="form-block-existing" class="space-y-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Select Product</label>
+                                <select name="product_id" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                    {% for product in products %}
+                                    <option value="{{ product.id }}">{{ product.name }} — Batch: {{ product.batch_number }} (Current: {{ product.quantity }} units)</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- NEW BATCH ON RESTOCK: leave blank if this delivery is the same
+                                 batch/lot as what's already on the shelf. Fill these in only
+                                 when the new stock has a different batch number - the system
+                                 will then keep it as its own line instead of mixing lots. -->
+                            <div class="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5 space-y-3">
+                                <p class="text-[9px] font-bold text-amber-700 uppercase tracking-wide">Optional — only if this delivery is a different batch/lot</p>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">New Batch Number</label>
+                                    <input type="text" name="batch_number" placeholder="Leave blank if same batch as above" class="bg-white border border-gray-200 rounded-xl p-2.5 outline-none focus:border-sanyoh-green">
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Mfg Date</label>
+                                        <input type="date" name="mfg_date" class="bg-white border border-gray-200 rounded-xl p-2.5 outline-none focus:border-sanyoh-green">
+                                    </div>
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Expiry Date</label>
+                                        <input type="date" name="expiry_date" class="bg-white border border-gray-200 rounded-xl p-2.5 outline-none focus:border-sanyoh-green">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="form-block-new" class="hidden space-y-4">
+
+                            <!-- CATALOG SEARCH: pick from the client's registered product list instead of typing everything by hand -->
+                            <div class="flex flex-col gap-1.5 relative">
+                                <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">🔍 Search Registered Product Catalog</label>
+                                <input type="text" id="catalogSearchInput" autocomplete="off" placeholder="Type a product name, model/size, or registration #..."
+                                       class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green"
+                                       oninput="renderCatalogResults(this.value)" onfocus="renderCatalogResults(this.value)">
+                                <div id="catalogResults" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto z-30"></div>
+                                <p class="text-[9px] text-gray-400">Selecting an item below fills in the fields automatically. You can still edit them after.</p>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Product Name</label>
+                                    <input type="text" id="newProductName" name="name" placeholder="e.g., Trocar" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Variant / Size</label>
+                                    <input type="text" id="newVariantSize" name="variant_size" placeholder="e.g., 10mm, 5mm" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-1.5">
+                                <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Registration Number (MDIR / MDIE)</label>
+                                <input type="text" id="newRegistrationNumber" name="registration_number" placeholder="e.g., MDIR-0008787" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Unit Price (Rs.)</label>
+                                    <input type="number" step="0.01" name="price" placeholder="0.00" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Batch Number</label>
+                                    <input type="text" name="batch_number" placeholder="e.g., BT-901" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Manufacturing Date</label>
+                                    <input type="date" name="mfg_date" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Expiry Date</label>
+                                    <input type="date" name="expiry_date" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-1.5">
+                                <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Product Photo</label>
+                                <div class="border border-dashed border-gray-200 bg-gray-50/50 p-4 rounded-xl flex items-center justify-center hover:bg-gray-50 transition relative">
+                                    <input type="file" name="product_image" accept="image/*" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer">
+                                    <div class="text-center text-gray-400 font-medium">
+                                        📸 <span class="text-sanyoh-green font-bold underline">Click to upload</span> or drag an image here
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1.5">
+                            <label class="font-bold text-gray-700 uppercase tracking-wide text-[10px]">Quantity</label>
+                            <input type="number" name="quantity" placeholder="Enter quantity" class="bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-sanyoh-green">
+                        </div>
+
+                        <button type="submit" class="w-full bg-sanyoh-green hover:bg-[#22612e] text-white py-3.5 rounded-xl font-bold uppercase tracking-wider transition shadow-sm cursor-pointer mt-2">
+                            Save Entry
+                        </button>
+                    </form>
+                </section>
+            </div>
+
+            <!-- TAB 4: TRANSACTION AUDIT LEDGER -->
+            <div id="tab-audit-ledger" class="tab-content hidden space-y-8">
+                <section class="bg-white border border-gray-100 rounded-3xl p-6 shadow-xs">
+                    <div class="flex items-center gap-2 mb-6 border-b border-gray-50 pb-4">
+                        <span class="text-sm">📜</span>
+                        <h2 class="text-xs font-black text-gray-800 tracking-wider uppercase">Transaction History</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 tracking-wider uppercase bg-gray-50/50">
+                                    <th class="py-3 px-4">Date & Time</th>
+                                    <th class="py-3 px-4">Type</th>
+                                    <th class="py-3 px-4">Product</th>
+                                    <th class="py-3 px-4 text-center">Quantity</th>
+                                    <th class="py-3 px-4 text-right">Amount</th>
+                                    <th class="py-3 px-4 text-center">Receipt</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-50 text-gray-600">
+                                {% for tx in transactions %}
+                                <tr class="hover:bg-gray-50/30 transition">
+                                    <td class="py-3.5 px-4 font-mono text-[11px] text-gray-400">{{ tx.timestamp }}</td>
+                                    <td class="py-3.5 px-4">
+                                        {% if tx.transaction_type == 'INWARD' %}
+                                        <span class="bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-md font-black text-[9px] tracking-wide uppercase">📥 Stock In</span>
+                                        {% else %}
+                                        <span class="bg-red-50 border border-red-100 text-red-600 px-2.5 py-0.5 rounded-md font-black text-[9px] tracking-wide uppercase">📦 Sale</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3.5 px-4 font-bold text-gray-800">{{ tx.product_name }}</td>
+                                    <td class="py-3.5 px-4 text-center font-semibold text-gray-700">{{ tx.quantity }}</td>
+                                    <td class="py-3.5 px-4 text-right font-mono font-bold {% if tx.transaction_type == 'INWARD' %}text-blue-600{% else %}text-sanyoh-green{% endif %}">
+                                        Rs. {{ "{:,.2f}".format(tx.total_amount) }}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-center">
+                                        <a href="/print-transaction/{{ tx.id }}" target="_blank" class="inline-flex items-center gap-1 text-gray-500 hover:text-sanyoh-green font-bold hover:bg-gray-50 px-2.5 py-1 rounded-lg transition duration-150 cursor-pointer">
+                                            🖨️ Print
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODERN CRISP DELETION MODAL -->
+    <div id="custom-delete-modal" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-xl transform scale-95 transition-transform duration-200 mx-4 border border-gray-100">
+            <div class="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-lg mb-4">⚠️</div>
+            <h3 class="text-sm font-black text-gray-900 uppercase tracking-wide">Delete Product</h3>
+            <p id="delete-modal-msg" class="text-xs text-gray-500 mt-2 leading-relaxed">Are you sure you want to remove this product? All inventory records for this item will be permanently lost.</p>
+            
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeDeleteModal()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer">Cancel</button>
+                <form id="delete-modal-form" method="POST" action="" class="flex-1" onsubmit="return submitDeleteForm(event)">
+                    <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs cursor-pointer">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let analyticsChartInstance = null;
+        let globalChartData = { labels: [], sales: [], inward: [], totalSales: 0, totalInward: 0 };
+        const productCatalog = {{ catalog_json | safe }};
+        const pageErrorMessage = {{ error_message | tojson }};
+
+        document.addEventListener("DOMContentLoaded", function() {
+            loadAnalyticsData();
+            // Surface any error passed back from a form submission as an on-screen
+            // toast instead of a raw browser error page, then clean the URL.
+            if (pageErrorMessage) {
+                showToast(pageErrorMessage, "error");
+                const url = new URL(window.location.href);
+                url.searchParams.delete('error');
+                window.history.replaceState({}, '', url.toString());
+            }
+        });
+
+        function showToast(message, type = "error") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-md shadow-lg text-white font-semibold text-xs transition duration-300 max-w-xs ${
+                type === "success" ? "bg-green-600" : "bg-red-600"
+            }`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 4000);
+        }
+
+        // --- PRODUCT CATALOG SEARCH (Add New Product form) ---
+        function renderCatalogResults(query) {
+            const box = document.getElementById('catalogResults');
+            const q = (query || '').trim().toLowerCase();
+
+            const matches = productCatalog.filter(c =>
+                !q ||
+                c.product_name.toLowerCase().includes(q) ||
+                c.model_size.toLowerCase().includes(q) ||
+                c.registration_number.toLowerCase().includes(q)
+            ).slice(0, 25);
+
+            if (matches.length === 0) {
+                box.innerHTML = `<div class="p-3 text-[11px] text-gray-400">No matching catalog products. You can still type details manually below.</div>`;
+                box.classList.remove('hidden');
+                return;
+            }
+
+            box.innerHTML = matches.map((c, i) => `
+                <button type="button" onclick='selectCatalogItem(${JSON.stringify(JSON.stringify(c))})' class="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 cursor-pointer">
+                    <p class="text-xs font-bold text-gray-800">${c.product_name}</p>
+                    <p class="text-[10px] text-gray-500">${c.model_size} &nbsp;•&nbsp; Reg#: ${c.registration_number}</p>
+                </button>
+            `).join('');
+            box.classList.remove('hidden');
+        }
+
+        function selectCatalogItem(jsonStr) {
+            const c = JSON.parse(jsonStr);
+            document.getElementById('newProductName').value = c.product_name;
+            document.getElementById('newVariantSize').value = c.model_size;
+            document.getElementById('newRegistrationNumber').value = c.registration_number;
+            document.getElementById('catalogSearchInput').value = `${c.product_name} - ${c.model_size}`;
+            document.getElementById('catalogResults').classList.add('hidden');
+        }
+
+        document.addEventListener('click', function(e) {
+            const box = document.getElementById('catalogResults');
+            const input = document.getElementById('catalogSearchInput');
+            if (box && input && !box.contains(e.target) && e.target !== input) {
+                box.classList.add('hidden');
+            }
+        });
+
+        // --- AJAX FORM SUBMISSION: keeps errors and success on-screen as toasts ---
+        function submitInwardForm(event) {
+            event.preventDefault();
+            const form = document.getElementById('inwardStockForm');
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerText;
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Saving...";
+
+            fetch('/inward-stock', { method: 'POST', body: formData })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.status === 'success') {
+                        showToast(data.message || "Stock entry saved successfully!", "success");
+                        setTimeout(() => window.location.reload(), 900);
+                    } else {
+                        showToast(data.message || "Could not save stock entry.", "error");
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = originalText;
+                    }
+                })
+                .catch(() => {
+                    showToast("⚠️ Could not reach the server. Please try again.", "error");
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = originalText;
+                });
+
+            return false;
+        }
+
+        function submitDeleteForm(event) {
+            event.preventDefault();
+            const form = document.getElementById('delete-modal-form');
+            fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    closeDeleteModal();
+                    if (ok && data.status === 'success') {
+                        showToast(data.message || "Product deleted.", "success");
+                        setTimeout(() => window.location.reload(), 700);
+                    } else {
+                        showToast(data.message || "Could not delete product.", "error");
+                    }
+                })
+                .catch(() => {
+                    closeDeleteModal();
+                    showToast("⚠️ Could not reach the server. Please try again.", "error");
+                });
+            return false;
+        }
+
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = "w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-500 rounded-xl hover:bg-gray-50 transition cursor-pointer nav-btn";
+            });
+            element.className = "w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-white bg-sanyoh-green rounded-xl shadow-xs cursor-pointer nav-btn";
+            const cleanTitle = element.innerText.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD00-\uDFFF]/g, '').trim();
+            document.getElementById('page-title').innerText = cleanTitle;
+            
+            if (tabId === 'management-overview') {
+                setTimeout(renderChart, 50);
+            }
+            if (tabId === 'live-showcase') {
+                setTimeout(updateCarouselArrowState, 50);
+            }
+        }
+
+        // Clean Safe Attribute Modal Parsing Engine
+        function openDeleteModal(buttonElement) {
+            const productId = buttonElement.getAttribute('data-id');
+            const productName = buttonElement.getAttribute('data-name');
+            
+            const modal = document.getElementById('custom-delete-modal');
+            const msg = document.getElementById('delete-modal-msg');
+            const form = document.getElementById('delete-modal-form');
+            
+            form.action = `/delete-product/${productId}`;
+            msg.innerHTML = `Are you sure you want to remove <strong class="text-gray-900">'${productName}'</strong>? All inventory records for this item will be permanently lost.`;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('custom-delete-modal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function toggleInwardMode(mode) {
+            const actionInput = document.getElementById('inward-action-type');
+            const blockExisting = document.getElementById('form-block-existing');
+            const blockNew = document.getElementById('form-block-new');
+            const btnExisting = document.getElementById('btn-mode-existing');
+            const btnNew = document.getElementById('btn-mode-new');
+
+            actionInput.value = mode;
+            if (mode === 'existing') {
+                blockExisting.classList.remove('hidden');
+                blockNew.classList.add('hidden');
+                btnExisting.className = "px-3 py-1.5 rounded-lg bg-white text-gray-800 shadow-xs cursor-pointer";
+                btnNew.className = "px-3 py-1.5 rounded-lg text-gray-500 cursor-pointer";
+            } else {
+                blockExisting.classList.add('hidden');
+                blockNew.classList.remove('hidden');
+                btnExisting.className = "px-3 py-1.5 rounded-lg text-gray-500 cursor-pointer";
+                btnNew.className = "px-3 py-1.5 rounded-lg bg-white text-gray-800 shadow-xs cursor-pointer";
+            }
+        }
+
+        function generateReport() {
+            const start = document.getElementById('reportStartDate').value;
+            const end = document.getElementById('reportEndDate').value;
+            const params = new URLSearchParams();
+            if (start) params.set('start', start);
+            if (end) params.set('end', end);
+
+            const rangeLabel = document.getElementById('reportRangeLabel');
+            rangeLabel.innerText = "Loading report...";
+
+            fetch('/sales-report-data?' + params.toString())
+                .then(res => res.json())
+                .then(data => {
+                    rangeLabel.innerText = `Showing: ${data.start || 'the beginning'} to ${data.end || 'today'} · ${data.transaction_count} sale${data.transaction_count === 1 ? '' : 's'}`;
+
+                    document.getElementById('report-total-sales').innerText = "Rs. " + data.total_sales.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('report-total-purchases').innerText = "Rs. " + data.total_purchases.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('report-margin').innerText = "Rs. " + data.gross_margin.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('report-count-avg').innerText = `${data.transaction_count} / Rs. ${data.average_sale.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+                    const tbody = document.getElementById('report-top-products');
+                    if (!data.top_products || data.top_products.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" class="py-4 px-3 text-center text-gray-400 text-[11px]">No sales in this period.</td></tr>`;
+                    } else {
+                        tbody.innerHTML = data.top_products.map(p => `
+                            <tr class="hover:bg-gray-50/40">
+                                <td class="py-2.5 px-3 font-bold text-gray-800">${p.name}</td>
+                                <td class="py-2.5 px-3 text-center">${p.qty}</td>
+                                <td class="py-2.5 px-3 text-right font-bold text-sanyoh-green">Rs. ${p.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        `).join('');
+                    }
+                })
+                .catch(() => {
+                    rangeLabel.innerText = "Could not load the report. Please try again.";
+                });
+        }
+
+        function downloadReportCsv() {
+            const start = document.getElementById('reportStartDate').value;
+            const end = document.getElementById('reportEndDate').value;
+            const params = new URLSearchParams();
+            if (start) params.set('start', start);
+            if (end) params.set('end', end);
+            window.open('/export-sales-report-csv?' + params.toString(), '_blank');
+        }
+
+        // --- FIXED-FRAME PAGED PRODUCT CAROUSEL (Fiverr-gig-style slider) ---
+        // The viewport (#product-carousel-viewport) never grows past its own
+        // width no matter how many products are added - it clips overflow and
+        // the track (#product-carousel) slides inside it via a CSS transform.
+        // The arrows always move by exactly one full "page" of cards.
+        let carouselPage = 0;
+
+        function getCarouselMetrics() {
+            const viewport = document.getElementById('product-carousel-viewport');
+            const track = document.getElementById('product-carousel');
+            const cards = track ? track.querySelectorAll('.carousel-card') : [];
+            if (!viewport || !track || cards.length === 0) {
+                return { viewport, track, cards, cardStep: 230, cardsPerView: 1, totalPages: 1 };
+            }
+            const cardWidth = cards[0].getBoundingClientRect().width;
+            const gap = 20; // matches the track's gap-5 (1.25rem = 20px)
+            const cardStep = cardWidth + gap;
+            const viewportWidth = viewport.getBoundingClientRect().width;
+            const cardsPerView = Math.max(1, Math.floor((viewportWidth + gap) / cardStep));
+            const totalPages = Math.max(1, Math.ceil(cards.length / cardsPerView));
+            return { viewport, track, cards, cardStep, cardsPerView, totalPages };
+        }
+
+        function scrollCarousel(direction) {
+            const { track, cardStep, cardsPerView, totalPages } = getCarouselMetrics();
+            if (!track) return;
+
+            carouselPage = Math.min(Math.max(carouselPage + direction, 0), totalPages - 1);
+            const offsetPx = carouselPage * cardsPerView * cardStep;
+            track.style.transform = `translateX(-${offsetPx}px)`;
+            updateCarouselArrowState();
+        }
+
+        function updateCarouselArrowState() {
+            const { cards, cardsPerView, totalPages } = getCarouselMetrics();
+            if (cards.length === 0) return;
+            if (carouselPage > totalPages - 1) carouselPage = totalPages - 1;
+
+            const buttons = document.querySelectorAll('#tab-live-showcase button[onclick^="scrollCarousel"]');
+            buttons.forEach(btn => {
+                const isPrev = btn.getAttribute('onclick').includes('-1');
+                const disabled = isPrev ? carouselPage <= 0 : carouselPage >= totalPages - 1;
+                btn.classList.toggle('opacity-30', disabled);
+                btn.classList.toggle('pointer-events-none', disabled);
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            // Keep the current page in view (and re-clamp it) if the viewport is resized.
+            carouselPage = 0;
+            const { track } = getCarouselMetrics();
+            if (track) track.style.transform = 'translateX(0px)';
+            updateCarouselArrowState();
+        });
+
+        function loadAnalyticsData() {
+            fetch('/sales-analytics-data')
+                .then(res => res.json())
+                .then(data => {
+                    globalChartData = data;
+                    document.getElementById('stat-revenue').innerText = "Rs. " + data.yearly_total_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                    document.getElementById('stat-investment').innerText = "Rs. " + data.yearly_total_inward.toLocaleString('en-US', { minimumFractionDigits: 2 });
+                });
+        }
+
+        function updateChartScale(scale) {
+            const btnMonthly = document.getElementById('scale-btn-monthly');
+            const btnYearly = document.getElementById('scale-btn-yearly');
+            
+            if (scale === 'monthly') {
+                btnMonthly.className = "px-3 py-1 rounded-lg bg-white text-gray-800 shadow-xs cursor-pointer";
+                btnYearly.className = "px-3 py-1 rounded-lg text-gray-500 cursor-pointer";
+                renderChart('monthly');
+            } else {
+                btnMonthly.className = "px-3 py-1 rounded-lg text-gray-500 cursor-pointer";
+                btnYearly.className = "px-3 py-1 rounded-lg bg-white text-gray-800 shadow-xs cursor-pointer";
+                renderChart('yearly');
+            }
+        }
+
+        // Fixed Chart Instance Rendering Engine context to standard 2d
+        function renderChart(type = 'monthly') {
+            const canvasElement = document.getElementById('analyticsChart');
+            if (!canvasElement) return;
+            
+            const ctx = canvasElement.getContext('2d');
+            if (analyticsChartInstance) {
+                analyticsChartInstance.destroy();
+            }
+
+            let labels = globalChartData.labels;
+            let salesData = globalChartData.sales;
+            let inwardData = globalChartData.inward;
+
+            if (type === 'yearly') {
+                labels = [globalChartData.year ? ("Year " + globalChartData.year) : "This Year"];
+                salesData = [globalChartData.yearly_total_revenue];
+                inwardData = [globalChartData.yearly_total_inward];
+            }
+
+            analyticsChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Revenue (Sales)',
+                            data: salesData,
+                            backgroundColor: '#2b7a3a',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Stock Investment (Purchases)',
+                            data: inwardData,
+                            backgroundColor: '#2563eb',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { font: { size: 10, weight: 'bold' } }
+                        },
+                        x: {
+                            ticks: { font: { size: 10, weight: 'bold' } }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { font: { size: 11, weight: 'bold' } } }
+                    }
+                }
+            });
+        }
+
+        // Product Catalog tab (Product Showcase carousel) is visible by default on load
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(updateCarouselArrowState, 100);
+        });
+    </script>
+</body>
+</html>
